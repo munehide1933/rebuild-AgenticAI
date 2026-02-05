@@ -1,55 +1,40 @@
-"""
-重构后的聊天 API：使用推理编排器
-
-支持：
-1. 自动路由（简单/复杂/代码问题）
-2. Direct / CoT / ReAct 三种推理模式
-3. GPT-4o / DeepSeek-R1 双模型
-"""
+"""重构后的聊天 API：支持会话持久化、摘要历史、软删除与 MCP 上下文注入。"""
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.models.schemas import ChatRequest, ChatResponse
-from app.models.database import get_db
-from app.services.conversation_service import ConversationService
-from app.services.reasoning_orchestrator import ReasoningOrchestrator
-from app.services.llm_service import LLMService
 
+from app.models.database import get_db
+from app.models.schemas import (
+    ChatRequest,
+    ChatResponse,
+    ConversationDetail,
+    ConversationSummary,
+    MessageDTO,
+)
+from app.services.conversation_service import ConversationService
+from app.services.llm_service import LLMService
+from app.services.mcp_service import MCPService
+from app.services.reasoning_orchestrator import ReasoningOrchestrator
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
 
-# 初始化服务
 llm_service = LLMService()
 reasoning_orchestrator = ReasoningOrchestrator(llm_service)
+mcp_service = MCPService()
 
 
 @router.post("/message", response_model=ChatResponse)
-async def send_message(
-    request: ChatRequest,
-    db: AsyncSession = Depends(get_db)
-):
-    """
-    发送消息（智能推理版）
-    
-    流程：
-    1. 创建/获取对话
-    2. 保存用户消息
-    3. 路由决策 → 选择推理模式
-    4. 执行推理（Direct/CoT/ReAct）
-    5. 保存助手响应
-    """
-    
+async def send_message(request: ChatRequest, db: AsyncSession = Depends(get_db)):
     try:
-        # 1. 获取或创建对话
         conversation_id = request.conversation_id
-        if not conversation_id:
-            conversation = await ConversationService.create_conversation(
-                db,
-                title=request.message[:50],
-            )
+        if conversation_id:
+            conversation = await ConversationService.get_active_conversation(db, conversation_id)
+            if not conversation:
+                raise HTTPException(status_code=404, detail="Conversation not found")
+        else:
+            conversation = await ConversationService.create_conversation(db, title=request.message[:50])
             conversation_id = conversation.id
 
-        # 2. 保存用户消息
         await ConversationService.add_message(
             db,
             conversation_id=conversation_id,
@@ -57,41 +42,28 @@ async def send_message(
             content=request.message,
         )
 
-        # 3. 获取对话历史
-        history = await ConversationService.get_conversation_history(
-            db,
-            conversation_id
-        )
+        history = await ConversationService.get_conversation_history(db, conversation_id)
+        mcp_context = mcp_service.build_context(question=request.message, conversation_history=history)
 
-        # 4. 执行智能推理
-        print(f"🤖 处理问题: {request.message[:100]}...")
-        
         reasoning_result = await reasoning_orchestrator.reason(
             question=request.message,
-            conversation_history=history[-10:],  # 最近 10 条
+            conversation_history=history[-10:],
+            mcp_context=mcp_context,
         )
-        
-        print(f"✅ 推理完成: {reasoning_result.strategy} ({reasoning_result.model})")
 
-        # 5. 构建 meta_info
         meta_info = {
             "strategy": reasoning_result.strategy,
             "model": reasoning_result.model,
             "confidence": reasoning_result.confidence,
+            "mcp": mcp_context,
         }
-        
-        # 添加推理轨迹（如果有）
+
         if reasoning_result.reasoning_trace:
             meta_info["reasoning_trace"] = reasoning_result.reasoning_trace
-        
-        # 添加 ReAct 步骤（如果有）
         if reasoning_result.steps:
             meta_info["react_steps"] = reasoning_result.steps
-        
-        # 添加其他元数据
         meta_info.update(reasoning_result.metadata)
 
-        # 6. 保存助手响应
         assistant_message = await ConversationService.add_message(
             db,
             conversation_id=conversation_id,
@@ -99,9 +71,7 @@ async def send_message(
             content=reasoning_result.answer,
             meta_info=meta_info,
         )
-        await db.refresh(assistant_message)
 
-        # 7. 返回响应
         return ChatResponse(
             message_id=assistant_message.id,
             content=reasoning_result.answer,
@@ -118,16 +88,63 @@ async def send_message(
     except HTTPException:
         raise
     except Exception as e:
-        import traceback
-        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/conversations", response_model=list[ConversationSummary])
+async def list_conversations(db: AsyncSession = Depends(get_db)):
+    conversations = await ConversationService.list_active_conversations(db)
+    return [
+        ConversationSummary(
+            id=item.id,
+            title=item.title,
+            summary=item.summary,
+            created_at=item.created_at,
+            updated_at=item.updated_at or item.created_at,
+        )
+        for item in conversations
+    ]
+
+
+@router.get("/conversations/{conversation_id}", response_model=ConversationDetail)
+async def get_conversation(conversation_id: str, db: AsyncSession = Depends(get_db)):
+    conversation = await ConversationService.get_active_conversation(db, conversation_id)
+    if not conversation:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+
+    history = await ConversationService.get_conversation_history(db, conversation_id)
+    return ConversationDetail(
+        id=conversation.id,
+        title=conversation.title,
+        summary=conversation.summary,
+        created_at=conversation.created_at,
+        updated_at=conversation.updated_at or conversation.created_at,
+        messages=[
+            MessageDTO(
+                id=msg.id,
+                role=msg.role,
+                content=msg.content,
+                meta_info=msg.meta_info or {},
+                created_at=msg.created_at,
+            )
+            for msg in history
+        ],
+    )
+
+
+@router.delete("/conversations/{conversation_id}")
+async def delete_conversation(conversation_id: str, db: AsyncSession = Depends(get_db)):
+    deleted = await ConversationService.soft_delete_conversation(db, conversation_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    return {"success": True}
 
 
 @router.get("/reasoning-stats")
 async def get_reasoning_stats():
-    """获取推理统计信息（调试用）"""
     return {
         "supported_strategies": ["direct", "cot", "react"],
-        "supported_models": ["gpt-4o", "deepseek-r1"],
+        "supported_models": ["gpt-5.1-chat", "DeepSeek-R1-0528"],
         "routing_rules": "自动路由",
+        "mcp_context": "enabled",
     }

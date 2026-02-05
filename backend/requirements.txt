@@ -13,6 +13,7 @@ aiosqlite==0.22.1
 langchain-openai
 langchain-community
 #langgraph
+langgraph
 langchain-qdrant==0.1.4
 
 

@@ -12,6 +12,7 @@ dependencies = [
     "langchain-community>=0.3.31",
     "langchain-openai>=0.3.35",
     "langchain-qdrant==0.1.4",
+    "langgraph>=0.2.56",
     "passlib[bcrypt]==1.7.4",
     "pydantic==2.12.5",
     "pydantic-settings==2.12.0",

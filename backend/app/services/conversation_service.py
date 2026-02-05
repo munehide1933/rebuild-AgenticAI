@@ -12,11 +12,13 @@ class ConversationService:
 
     @staticmethod
     async def create_conversation(db: AsyncSession, title: str) -> Conversation:
-        """创建新对话（不再需要 project_id）"""
         conversation = Conversation(
             id=str(uuid.uuid4()),
             title=title,
+            summary=title[:60] if title else "新建会话",
             created_at=datetime.utcnow(),
+            updated_at=datetime.utcnow(),
+            is_deleted=False,
         )
         db.add(conversation)
         await db.commit()
@@ -31,7 +33,6 @@ class ConversationService:
         content: str,
         meta_info: dict | None = None,
     ) -> Message:
-        """添加用户消息或 AI 回复"""
         message = Message(
             id=str(uuid.uuid4()),
             conversation_id=conversation_id,
@@ -41,16 +42,22 @@ class ConversationService:
             created_at=datetime.utcnow(),
         )
         db.add(message)
+
+        conversation = await db.get(Conversation, conversation_id)
+        if conversation:
+            if role == "user":
+                snippet = content.strip().replace("\n", " ")
+                conversation.summary = snippet[:60] if snippet else conversation.summary
+                if not conversation.title or conversation.title == "新建会话":
+                    conversation.title = conversation.summary
+            conversation.updated_at = datetime.utcnow()
+
         await db.commit()
         await db.refresh(message)
         return message
 
     @staticmethod
-    async def get_conversation_history(
-        db: AsyncSession,
-        conversation_id: str,
-    ) -> list[Message]:
-        """获取对话全部消息（按时间顺序）"""
+    async def get_conversation_history(db: AsyncSession, conversation_id: str) -> list[Message]:
         query = (
             select(Message)
             .where(Message.conversation_id == conversation_id)
@@ -58,3 +65,32 @@ class ConversationService:
         )
         result = await db.execute(query)
         return list(result.scalars())
+
+    @staticmethod
+    async def list_active_conversations(db: AsyncSession) -> list[Conversation]:
+        query = (
+            select(Conversation)
+            .where(Conversation.is_deleted.is_(False))
+            .order_by(Conversation.updated_at.desc(), Conversation.created_at.desc())
+        )
+        result = await db.execute(query)
+        return list(result.scalars())
+
+    @staticmethod
+    async def get_active_conversation(db: AsyncSession, conversation_id: str) -> Conversation | None:
+        query = select(Conversation).where(
+            Conversation.id == conversation_id,
+            Conversation.is_deleted.is_(False),
+        )
+        result = await db.execute(query)
+        return result.scalar_one_or_none()
+
+    @staticmethod
+    async def soft_delete_conversation(db: AsyncSession, conversation_id: str) -> bool:
+        conversation = await db.get(Conversation, conversation_id)
+        if not conversation:
+            return False
+        conversation.is_deleted = True
+        conversation.updated_at = datetime.utcnow()
+        await db.commit()
+        return True

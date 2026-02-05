@@ -1,4 +1,6 @@
-from pydantic import BaseModel
+from datetime import datetime
+
+from pydantic import BaseModel, Field
 from typing import Any, Optional
 
 # -----------------------------
@@ -19,3 +21,28 @@ class ChatResponse(BaseModel):
     workflow_state: Optional[dict[str, Any]] = None
     code_modifications: Optional[Any] = None
     suggestions: Optional[Any] = None
+
+
+class ConversationSummary(BaseModel):
+    id: str
+    title: str
+    summary: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class MessageDTO(BaseModel):
+    id: str
+    role: str
+    content: str
+    meta_info: dict[str, Any] = Field(default_factory=dict)
+    created_at: datetime
+
+
+class ConversationDetail(BaseModel):
+    id: str
+    title: str
+    summary: str
+    created_at: datetime
+    updated_at: datetime
+    messages: list[MessageDTO]

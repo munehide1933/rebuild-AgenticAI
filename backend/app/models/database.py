@@ -1,50 +1,49 @@
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
-from sqlalchemy.orm import sessionmaker, declarative_base, relationship
-from sqlalchemy import Column, String, DateTime, Text, ForeignKey, JSON
-from app.config import settings
 from datetime import datetime
 from pathlib import Path
 import sqlite3
+
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, JSON, String, Text
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.orm import declarative_base, relationship, sessionmaker
+
+from app.config import settings
 
 DATABASE_URL = settings.DATABASE_URL
 
 engine = create_async_engine(
     DATABASE_URL,
     echo=False,
-    future=True
+    future=True,
 )
 
 AsyncSessionLocal = sessionmaker(
     engine,
     expire_on_commit=False,
-    class_=AsyncSession
+    class_=AsyncSession,
 )
 
 Base = declarative_base()
 
 
-# -------------------------------
-# Conversation 表（不再依赖 project）
-# -------------------------------
 class Conversation(Base):
     __tablename__ = "conversations"
 
     id = Column(String, primary_key=True, index=True)
     title = Column(String, nullable=False)
+    summary = Column(String, nullable=False, default="新建会话")
+    is_deleted = Column(Boolean, nullable=False, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     messages = relationship("Message", back_populates="conversation", cascade="all, delete-orphan")
 
 
-# -------------------------------
-# Message 表（用于存储对话历史）
-# -------------------------------
 class Message(Base):
     __tablename__ = "messages"
 
     id = Column(String, primary_key=True, index=True)
     conversation_id = Column(String, ForeignKey("conversations.id"), nullable=False)
-    role = Column(String, nullable=False)  # user / assistant
+    role = Column(String, nullable=False)
     content = Column(Text, nullable=False)
     meta_info = Column(JSON, default=dict)
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -52,21 +51,38 @@ class Message(Base):
     conversation = relationship("Conversation", back_populates="messages")
 
 
-# -------------------------------
-# 获取数据库会话
-# -------------------------------
 async def get_db():
     async with AsyncSessionLocal() as session:
         yield session
 
 
-# -------------------------------
-# 初始化数据库（建表）
-# -------------------------------
 async def init_db():
     _ensure_clean_sqlite_schema()
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        await conn.run_sync(_migrate_conversation_table)
+
+
+def _migrate_conversation_table(sync_conn) -> None:
+    if sync_conn.dialect.name != "sqlite":
+        return
+
+    columns = {
+        row[1]
+        for row in sync_conn.exec_driver_sql("PRAGMA table_info(conversations)").fetchall()
+    }
+
+    if "summary" not in columns:
+        sync_conn.exec_driver_sql(
+            "ALTER TABLE conversations ADD COLUMN summary VARCHAR DEFAULT '新建会话'"
+        )
+    if "is_deleted" not in columns:
+        sync_conn.exec_driver_sql(
+            "ALTER TABLE conversations ADD COLUMN is_deleted BOOLEAN DEFAULT 0"
+        )
+    if "updated_at" not in columns:
+        sync_conn.exec_driver_sql("ALTER TABLE conversations ADD COLUMN updated_at DATETIME")
+        sync_conn.exec_driver_sql("UPDATE conversations SET updated_at = created_at")
 
 
 def _ensure_clean_sqlite_schema() -> None:
