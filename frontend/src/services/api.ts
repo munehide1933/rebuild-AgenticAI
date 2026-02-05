@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { ChatRequest, ChatResponse } from '@/types';
+import type { ChatRequest, ChatResponse, Conversation, ConversationDetail } from '@/types';
 
 const api = axios.create({
   baseURL: '/api',
@@ -8,10 +8,13 @@ const api = axios.create({
   },
 });
 
-// Chat API
 export const chatApi = {
-  sendMessage: (data: ChatRequest) =>
-    api.post<ChatResponse>('/chat/message', data),
+  sendMessage: (data: ChatRequest) => api.post<ChatResponse>('/chat/message', data),
+  listConversations: () => api.get<Conversation[]>('/chat/conversations'),
+  getConversation: (conversationId: string) =>
+    api.get<ConversationDetail>(`/chat/conversations/${conversationId}`),
+  deleteConversation: (conversationId: string) =>
+    api.delete<{ success: boolean }>(`/chat/conversations/${conversationId}`),
 };
 
 export default api;

@@ -1,8 +1,9 @@
 export interface Conversation {
   id: string;
-  title?: string;
-  created_at?: string;
-  updated_at?: string;
+  title: string;
+  summary: string;
+  created_at: string;
+  updated_at: string;
   messages?: Message[];
 }
 
@@ -14,37 +15,23 @@ export interface Message {
   created_at: string;
 }
 
-// ✨ 新增：完整的元信息类型
 export interface MessageMetaInfo {
-  // 推理相关
   strategy?: 'cot' | 'react' | 'direct';
-  model?: 'gpt-4o' | 'deepseek-r1';
+  model?: 'gpt5' | 'DeepSeek-R1-0528' | string;
   confidence?: number;
-  
-  // CoT 推理轨迹
   reasoning_trace?: string[];
-  
-  // ReAct 步骤
   react_steps?: ReactStep[];
-  
-  // 工作流相关（兼容旧版）
   workflow_phase?: string;
-  
-  // 代码相关
   code_modifications?: CodeModification[];
-  
-  // 安全提示
   security_warnings?: string[];
-  
-  // Token 使用情况
   usage?: {
     prompt_tokens: number;
     completion_tokens: number;
     total_tokens: number;
   };
+  mcp?: Record<string, unknown>;
 }
 
-// ✨ 新增：ReAct 步骤详情
 export interface ReactStep {
   step: number;
   action: string;
@@ -75,4 +62,8 @@ export interface ChatResponse {
   };
   code_modifications?: CodeModification[];
   suggestions?: string[];
+}
+
+export interface ConversationDetail extends Conversation {
+  messages: Message[];
 }
