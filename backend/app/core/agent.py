@@ -10,7 +10,7 @@ from app.tools.tavily_search import tavily_search
 class Agent:
     """智能体：支持 CoT（简单问题）和 ReAct（复杂问题）"""
 
-    def __init__(self, max_react_steps: int = 5):
+    def __init__(self, max_react_steps: int = 20):
         self.llm = LLMService()
         self.max_react_steps = max_react_steps
 
@@ -123,7 +123,16 @@ Format your response as:
 
             prompt += f"\n{result}\n"
 
-        return "抱歉，该问题过于复杂，我无法在限定步数内完成推理。", steps
+        summary_prompt = (
+            prompt
+            + "\n\n你已经进行了多轮推理。现在请基于已有 Thought/Observation 直接给出最终答案，"
+            + "不再调用工具，格式必须是: Final Answer: <answer>"
+        )
+        summary_result = (await self.llm.generate_simple(summary_prompt, model=model)).strip()
+        if "Final Answer:" in summary_result:
+            return summary_result.split("Final Answer:", 1)[1].strip(), steps
+
+        return summary_result or "抱歉，我暂时无法完成该问题。", steps
 
     def _extract_action(self, text: str) -> dict | None:
         json_match = re.search(r'```(?:json)?\s*(\{.*?\})\s*```', text, re.DOTALL)

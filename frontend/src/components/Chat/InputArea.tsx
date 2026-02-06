@@ -4,6 +4,8 @@ import { Send } from 'lucide-react';
 
 const InputArea: React.FC = () => {
   const [message, setMessage] = useState('');
+  const [deepThinking, setDeepThinking] = useState(false);
+  const [webSearchEnabled, setWebSearchEnabled] = useState(false);
   const { sendMessage, isLoading, currentConversationId } = useChatStore();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -17,6 +19,8 @@ const InputArea: React.FC = () => {
     await sendMessage({
       message: messageText,
       conversation_id: currentConversationId ?? undefined,
+      deep_thinking: deepThinking,
+      web_search_enabled: webSearchEnabled,
     });
 
     // Reset textarea height
@@ -68,9 +72,33 @@ const InputArea: React.FC = () => {
         </button>
       </form>
 
+      <div className="mt-3 flex items-center gap-4 text-xs text-gray-600">
+        <label className="inline-flex items-center gap-2 cursor-pointer">
+          <input
+            type="checkbox"
+            className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+            checked={deepThinking}
+            onChange={(e) => setDeepThinking(e.target.checked)}
+            disabled={isLoading}
+          />
+          Deep Thinking
+        </label>
+
+        <label className="inline-flex items-center gap-2 cursor-pointer">
+          <input
+            type="checkbox"
+            className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+            checked={webSearchEnabled}
+            onChange={(e) => setWebSearchEnabled(e.target.checked)}
+            disabled={isLoading}
+          />
+          Web Search
+        </label>
+      </div>
+
       {/* Helper Text */}
       <div className="mt-2 text-xs text-gray-400 text-center">
-        Meta-Agent 支持多角色协作、代码生成、安全审查等功能
+        Meta-Agent 支持多阶段分析、代码生成建议与可选联网检索
       </div>
     </div>
   );

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import type { Message } from '@/types';
 import { Bot, User, Clock, AlertTriangle, Code } from 'lucide-react';
@@ -10,14 +10,35 @@ interface MessageListProps {
 }
 
 const MessageList: React.FC<MessageListProps> = ({ messages, isLoading }) => {
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const shouldAutoScrollRef = useRef(true);
+
+  const updateAutoScroll = () => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    const threshold = 120;
+    const distanceToBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
+    shouldAutoScrollRef.current = distanceToBottom < threshold;
+  };
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    updateAutoScroll();
+  }, [messages.length]);
+
+  useEffect(() => {
+    if (shouldAutoScrollRef.current) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
   }, [messages, isLoading]);
 
   return (
-    <div className="flex-1 overflow-y-auto px-6 py-4 space-y-6">
+    <div
+      ref={scrollContainerRef}
+      onScroll={updateAutoScroll}
+      className="flex-1 overflow-y-auto px-6 py-4 space-y-6"
+    >
       {messages.length === 0 && !isLoading && (
         <div className="flex items-center justify-center h-full">
           <div className="text-center">
@@ -50,9 +71,32 @@ interface MessageItemProps {
   message: Message;
 }
 
+const extractThinking = (content: string): { visible: string; hidden: string | null } => {
+  const match = content.match(/\*\*思考过程：?\*\*([\s\S]*?)\*\*最终答案：?\*\*([\s\S]*)/i);
+  if (match) {
+    return {
+      visible: (match[2] || '').trim(),
+      hidden: (match[1] || '').trim() || null,
+    };
+  }
+  return { visible: content, hidden: null };
+};
+
 const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
   const isUser = message.role === 'user';
   const hasMetadata = !!message.meta_info && Object.keys(message.meta_info).length > 0;
+  const processed = useMemo(() => extractThinking(message.content), [message.content]);
+  const detailBlocks: string[] = [];
+
+  if (processed.hidden) {
+    detailBlocks.push(processed.hidden);
+  }
+  if ((message.meta_info?.reasoning_trace?.length ?? 0) > 0) {
+    detailBlocks.push(`推理步骤：\n${(message.meta_info?.reasoning_trace || []).map((item, idx) => `${idx + 1}. ${item}`).join('\n')}`);
+  }
+  if ((message.meta_info?.react_steps?.length ?? 0) > 0) {
+    detailBlocks.push(`ReAct 工具调用：\n${(message.meta_info?.react_steps || []).map((item: any) => `- Step ${item.step}: ${item.action} | input=${item.input}`).join('\n')}`);
+  }
 
   return (
     <div className={`flex items-start gap-4 ${isUser ? 'flex-row-reverse' : ''}`}>
@@ -73,9 +117,18 @@ const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
           {isUser ? (
             <p className="text-white whitespace-pre-wrap m-0">{message.content}</p>
           ) : (
-            <ReactMarkdown>{message.content}</ReactMarkdown>
+            <ReactMarkdown>{processed.visible || message.content}</ReactMarkdown>
           )}
         </div>
+
+        {!isUser && detailBlocks.length > 0 && (
+          <details className="mt-2 text-xs text-gray-600 bg-gray-50 border border-gray-200 rounded-lg p-3">
+            <summary className="cursor-pointer font-medium">查看思考过程详情（默认收起）</summary>
+            <div className="mt-2 prose prose-sm max-w-none">
+              <ReactMarkdown>{detailBlocks.join('\n\n---\n\n')}</ReactMarkdown>
+            </div>
+          </details>
+        )}
 
         {hasMetadata && !isUser && (
           <div className="mt-3 space-y-2">

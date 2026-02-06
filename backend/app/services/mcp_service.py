@@ -13,15 +13,22 @@ class MCPService:
             intent=RunnableLambda(self._extract_intent),
             history=RunnableLambda(self._extract_history),
             history_count=RunnableLambda(lambda data: len(data.get("conversation_history", []))),
+            user_profile=RunnableLambda(lambda data: data.get("user_profile", {})),
         )
 
-    def build_context(self, question: str, conversation_history: list[Any]) -> dict[str, Any]:
+    def build_context(
+        self,
+        question: str,
+        conversation_history: list[Any],
+        user_profile: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         payload = {
             "question": question,
             "conversation_history": conversation_history,
+            "user_profile": user_profile or {},
         }
         result = self._pipeline.invoke(payload)
-        result["context_hint"] = "基于最近会话理解用户当前目标，优先延续上下文。"
+        result["context_hint"] = "基于最近会话和长期偏好理解用户当前目标，优先延续上下文。"
         return result
 
     @staticmethod
