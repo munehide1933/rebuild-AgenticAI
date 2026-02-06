@@ -1,8 +1,5 @@
-<<<<<<< HEAD
-=======
-import ErrorBoundary from './components/ErrorBoundary';
->>>>>>> 81cede4 (Initial commit)
 import MainLayout from './components/Layout/MainLayout';
+import ErrorBoundary from './components/ErrorBoundary';
 
 function App() {
   return (

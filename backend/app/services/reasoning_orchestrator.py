@@ -15,8 +15,6 @@ class ReasoningResult:
     strategy: str
     model: str
     confidence: float
-    reasoning_trace: list[str] | None = None
-    steps: list[dict[str, Any]] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
 
 
@@ -28,8 +26,6 @@ class ReasoningState(TypedDict, total=False):
     strategy: Literal["cot", "react"]
     is_complex: bool
     answer: str
-    reasoning_trace: list[str]
-    steps: list[dict[str, Any]]
     confidence: float
     metadata: dict[str, Any]
 
@@ -61,8 +57,6 @@ class ReasoningOrchestrator:
             strategy=result_state.get("strategy", "cot"),
             model=result_state.get("model", self._llm.get_recommended_model(question)),
             confidence=result_state.get("confidence", 0.7),
-            reasoning_trace=result_state.get("reasoning_trace"),
-            steps=result_state.get("steps", []),
             metadata=result_state.get("metadata", {}),
         )
 
@@ -106,42 +100,34 @@ class ReasoningOrchestrator:
         return state.get("strategy", "cot")
 
     async def _cot_node(self, state: ReasoningState) -> ReasoningState:
-        answer, reasoning_trace = await self._agent._cot_reasoning(
+        answer, _ = await self._agent._cot_reasoning(
             state["question"],
             state.get("conversation_history", []),
             state.get("mcp_context", {}),
         )
-        has_reasoning = len(reasoning_trace) >= 2
-        confidence = 0.85 if has_reasoning else 0.70
+        confidence = 0.8
         return {
             **state,
             "answer": answer,
-            "reasoning_trace": reasoning_trace,
-            "steps": [],
             "confidence": confidence,
             "metadata": {
-                "cot_step_count": len(reasoning_trace),
                 "mcp": state.get("mcp_context", {}),
             },
         }
 
     async def _react_node(self, state: ReasoningState) -> ReasoningState:
-        answer, steps = await self._agent._react_reasoning(
+        answer, used_tools = await self._agent._react_reasoning(
             state["question"],
             state.get("conversation_history", []),
             state.get("mcp_context", {}),
         )
-        has_tool_usage = len(steps) > 0
-        confidence = 0.90 if has_tool_usage else 0.75
+        confidence = 0.9 if used_tools else 0.75
         return {
             **state,
             "answer": answer,
-            "reasoning_trace": None,
-            "steps": steps,
             "confidence": confidence,
             "metadata": {
-                "react_step_count": len(steps),
-                "used_tools": has_tool_usage,
+                "used_tools": used_tools,
                 "mcp": state.get("mcp_context", {}),
             },
         }

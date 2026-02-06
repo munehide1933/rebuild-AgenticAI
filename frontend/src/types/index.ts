@@ -19,8 +19,6 @@ export interface MessageMetaInfo {
   strategy?: 'cot' | 'react' | 'direct';
   model?: 'gpt5' | 'DeepSeek-R1-0528' | string;
   confidence?: number;
-  reasoning_trace?: string[];
-  react_steps?: ReactStep[];
   workflow_phase?: string;
   code_modifications?: CodeModification[];
   security_warnings?: string[];
@@ -31,13 +29,6 @@ export interface MessageMetaInfo {
   };
   mcp?: Record<string, unknown>;
   reflection?: Record<string, unknown>;
-}
-
-export interface ReactStep {
-  step: number;
-  action: string;
-  input: string;
-  output: string;
 }
 
 export interface CodeModification {

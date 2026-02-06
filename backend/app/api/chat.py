@@ -97,10 +97,6 @@ async def _prepare_chat_result(request: ChatRequest, db: AsyncSession) -> dict[s
             "mcp": mcp_context,
         }
 
-        if reasoning_result.reasoning_trace:
-            meta_info["reasoning_trace"] = reasoning_result.reasoning_trace
-        if reasoning_result.steps:
-            meta_info["react_steps"] = reasoning_result.steps
         meta_info.update(reasoning_result.metadata)
         code_modifications = []
         suggestions = []
@@ -177,7 +173,15 @@ async def stream_message(request: ChatRequest, db: AsyncSession = Depends(get_db
 
             yield f"data: {json.dumps({'type': 'done', 'payload': payload}, ensure_ascii=False)}\n\n"
 
-        return StreamingResponse(event_generator(), media_type="text/event-stream")
+        return StreamingResponse(
+            event_generator(),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+                "X-Accel-Buffering": "no",
+            },
+        )
     except HTTPException:
         raise
     except Exception as e:
