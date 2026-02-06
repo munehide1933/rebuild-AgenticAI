@@ -9,6 +9,8 @@ from typing import Any, Optional
 class ChatRequest(BaseModel):
     message: str
     conversation_id: Optional[str] = None
+    deep_thinking: bool = False
+    web_search_enabled: bool = False
 
 
 # -----------------------------
