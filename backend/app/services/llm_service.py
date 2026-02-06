@@ -155,7 +155,7 @@ class LLMService:
         # 注意：不包含 temperature 和 max_tokens（GPT-4o 不支持）
         payload = {"messages": messages}
 
-        async with httpx.AsyncClient(timeout=60) as client:
+        async with httpx.AsyncClient(timeout=120) as client:
             response = await client.post(url, headers=headers, json=payload)
             response.raise_for_status()
             data = response.json()

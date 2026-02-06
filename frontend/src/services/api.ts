@@ -11,6 +11,8 @@ const api = axios.create({
 interface StreamHandlers {
   onChunk: (chunk: string) => void;
   onDone: (payload: ChatResponse) => void;
+  onStatus?: (status: string) => void;
+  onError?: (message: string) => void;
 }
 
 export const chatApi = {
@@ -50,6 +52,12 @@ export const chatApi = {
           const parsed = JSON.parse(line.replace('data: ', ''));
           if (parsed.type === 'chunk') {
             handlers.onChunk(parsed.content || '');
+          }
+          if (parsed.type === 'status') {
+            handlers.onStatus?.(parsed.content || '');
+          }
+          if (parsed.type === 'error') {
+            handlers.onError?.(parsed.message || 'Stream error');
           }
           if (parsed.type === 'done') {
             handlers.onDone(parsed.payload as ChatResponse);

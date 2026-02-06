@@ -14,13 +14,17 @@ const MessageList: React.FC<MessageListProps> = ({ messages, isLoading }) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const shouldAutoScrollRef = useRef(true);
 
-  useEffect(() => {
+  const updateAutoScroll = () => {
     const container = scrollContainerRef.current;
     if (!container) return;
 
     const threshold = 120;
     const distanceToBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
     shouldAutoScrollRef.current = distanceToBottom < threshold;
+  };
+
+  useEffect(() => {
+    updateAutoScroll();
   }, [messages.length]);
 
   useEffect(() => {
@@ -30,7 +34,11 @@ const MessageList: React.FC<MessageListProps> = ({ messages, isLoading }) => {
   }, [messages, isLoading]);
 
   return (
-    <div ref={scrollContainerRef} className="flex-1 overflow-y-auto px-6 py-4 space-y-6">
+    <div
+      ref={scrollContainerRef}
+      onScroll={updateAutoScroll}
+      className="flex-1 overflow-y-auto px-6 py-4 space-y-6"
+    >
       {messages.length === 0 && !isLoading && (
         <div className="flex items-center justify-center h-full">
           <div className="text-center">

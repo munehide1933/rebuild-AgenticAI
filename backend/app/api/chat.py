@@ -150,23 +150,24 @@ async def send_message(request: ChatRequest, db: AsyncSession = Depends(get_db))
 async def stream_message(request: ChatRequest, db: AsyncSession = Depends(get_db)):
     try:
         async def event_generator():
-            progress_hints = [
-                "正在理解问题...",
-                "正在检索上下文与历史偏好...",
-                "正在进行推理分析...",
-                "正在组织最终回答...",
-            ]
-
             task = asyncio.create_task(_prepare_chat_result(request, db))
-            hint_index = 0
+            yield f"data: {json.dumps({'type': 'status', 'content': '正在处理中...'}, ensure_ascii=False)}\n\n"
+            last_ping = asyncio.get_event_loop().time()
 
             while not task.done():
-                hint = progress_hints[hint_index % len(progress_hints)]
-                hint_index += 1
-                yield f"data: {json.dumps({'type': 'chunk', 'content': hint + '\n'}, ensure_ascii=False)}\n\n"
-                await asyncio.sleep(0.8)
+                now = asyncio.get_event_loop().time()
+                if now - last_ping >= 10:
+                    yield "data: {\"type\": \"ping\"}\n\n"
+                    last_ping = now
+                await asyncio.sleep(0.5)
 
-            payload = await task
+            try:
+                payload = await task
+            except Exception as exc:
+                error_payload = {"type": "error", "message": str(exc)}
+                yield f"data: {json.dumps(error_payload, ensure_ascii=False)}\n\n"
+                return
+
             content = payload["content"]
             chunk_size = 40
             for i in range(0, len(content), chunk_size):

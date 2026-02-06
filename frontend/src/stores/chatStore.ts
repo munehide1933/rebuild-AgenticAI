@@ -105,6 +105,24 @@ export const useChatStore = create<ChatState>((set, get) => ({
               ),
             }));
           },
+          onStatus: (status) => {
+            set((state) => ({
+              messages: state.messages.map((msg) =>
+                msg.id === localAssistantId && msg.content.length === 0
+                  ? { ...msg, content: status }
+                  : msg,
+              ),
+            }));
+          },
+          onError: (message) => {
+            set((state) => ({
+              messages: state.messages.map((msg) =>
+                msg.id === localAssistantId ? { ...msg, content: message } : msg,
+              ),
+              error: message,
+              isLoading: false,
+            }));
+          },
           onDone: (payload) => {
             set((state) => ({
               messages: state.messages.map((msg) =>
