@@ -149,9 +149,24 @@ async def send_message(request: ChatRequest, db: AsyncSession = Depends(get_db))
 @router.post("/stream")
 async def stream_message(request: ChatRequest, db: AsyncSession = Depends(get_db)):
     try:
-        payload = await _prepare_chat_result(request, db)
-
         async def event_generator():
+            progress_hints = [
+                "正在理解问题...",
+                "正在检索上下文与历史偏好...",
+                "正在进行推理分析...",
+                "正在组织最终回答...",
+            ]
+
+            task = asyncio.create_task(_prepare_chat_result(request, db))
+            hint_index = 0
+
+            while not task.done():
+                hint = progress_hints[hint_index % len(progress_hints)]
+                hint_index += 1
+                yield f"data: {json.dumps({'type': 'chunk', 'content': hint + '\n'}, ensure_ascii=False)}\n\n"
+                await asyncio.sleep(0.8)
+
+            payload = await task
             content = payload["content"]
             chunk_size = 40
             for i in range(0, len(content), chunk_size):

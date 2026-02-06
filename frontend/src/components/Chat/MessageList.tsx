@@ -10,14 +10,27 @@ interface MessageListProps {
 }
 
 const MessageList: React.FC<MessageListProps> = ({ messages, isLoading }) => {
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const shouldAutoScrollRef = useRef(true);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    const threshold = 120;
+    const distanceToBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
+    shouldAutoScrollRef.current = distanceToBottom < threshold;
+  }, [messages.length]);
+
+  useEffect(() => {
+    if (shouldAutoScrollRef.current) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
   }, [messages, isLoading]);
 
   return (
-    <div className="flex-1 overflow-y-auto px-6 py-4 space-y-6">
+    <div ref={scrollContainerRef} className="flex-1 overflow-y-auto px-6 py-4 space-y-6">
       {messages.length === 0 && !isLoading && (
         <div className="flex items-center justify-center h-full">
           <div className="text-center">
