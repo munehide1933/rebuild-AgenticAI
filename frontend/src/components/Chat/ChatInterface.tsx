@@ -8,7 +8,7 @@ const ChatInterface: React.FC = () => {
   const { messages, isLoading, error, startNewConversation, currentConversationId } = useChatStore();
 
   return (
-    <div className="flex flex-col h-screen bg-white">
+    <div className="flex flex-col h-full min-h-0 bg-white">
       <header className="flex-shrink-0 px-6 py-4 border-b border-gray-200 bg-white">
         <div className="flex items-center justify-between">
           <div>
@@ -38,7 +38,7 @@ const ChatInterface: React.FC = () => {
         </div>
       )}
 
-      <div className="flex-1 overflow-hidden">
+      <div className="flex-1 min-h-0 overflow-hidden">
         <MessageList messages={messages} isLoading={isLoading} />
       </div>
 

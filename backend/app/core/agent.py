@@ -41,19 +41,10 @@ Is this a complex question? Answer with "yes" or "no" only.
         model = self.llm.get_recommended_model(user_message)
 
         system_prompt = f"""
-You are a helpful AI assistant. Please think step by step and output your reasoning process.
+You are a helpful AI assistant. Provide a concise, direct answer without revealing your chain-of-thought.
 
 MCP context (JSON):
 {json.dumps(mcp_context or {}, ensure_ascii=False)}
-
-Format your response as:
-**思考过程：**
-1. [Step 1 analysis]
-2. [Step 2 analysis]
-...
-
-**最终答案：**
-[Your concise answer here]
 """
 
         result = await self.llm.generate_response(
@@ -63,32 +54,17 @@ Format your response as:
             model=model,
         )
 
-        content = result["content"]
-        thinking_match = re.search(
-            r'\*\*思考过程：?\*\*\s*(.*?)\s*\*\*最终答案：?\*\*',
-            content,
-            re.DOTALL | re.IGNORECASE,
-        )
+        content = result["content"].strip()
+        content = re.sub(r'\*\*思考过程：?\*\*[\s\S]*?\*\*最终答案：?\*\*', '', content, flags=re.IGNORECASE).strip()
+        content = re.sub(r'^(Final Answer:|最终答案：)\s*', '', content, flags=re.IGNORECASE).strip()
 
-        reasoning_trace = []
-        final_answer = content
-
-        if thinking_match:
-            thinking_section = thinking_match.group(1).strip()
-            steps = re.findall(r'^\d+\.\s*(.+?)(?=\n\d+\.|$)', thinking_section, re.MULTILINE | re.DOTALL)
-            reasoning_trace = [s.strip() for s in steps if s.strip()]
-
-            answer_match = re.search(r'\*\*最终答案：?\*\*\s*(.*)', content, re.DOTALL | re.IGNORECASE)
-            if answer_match:
-                final_answer = answer_match.group(1).strip()
-
-        return final_answer, reasoning_trace
+        return content, []
 
     async def _react_reasoning(self, user_message: str, history: list, mcp_context: dict[str, Any] | None = None):
         model = self.llm.get_recommended_model(user_message)
 
         prompt = self._build_react_prompt(user_message, mcp_context)
-        steps = []
+        used_tools = False
 
         for step_num in range(self.max_react_steps):
             result = await self.llm.generate_simple(prompt, model=model)
@@ -96,7 +72,7 @@ Format your response as:
 
             if "Final Answer:" in result:
                 final_answer = result.split("Final Answer:", 1)[1].strip()
-                return final_answer, steps
+                return final_answer, used_tools
 
             if "Action:" in result:
                 action_data = self._extract_action(result)
@@ -111,12 +87,7 @@ Format your response as:
                 if action_data["tool"] == "search":
                     query = action_data["query"]
                     search_result = tavily_search(query)
-                    steps.append({
-                        "step": step_num + 1,
-                        "action": "search",
-                        "input": query,
-                        "output": search_result[:500],
-                    })
+                    used_tools = True
 
                     prompt += f"\nObservation: {search_result}\n\nThought: "
                     continue
@@ -130,9 +101,9 @@ Format your response as:
         )
         summary_result = (await self.llm.generate_simple(summary_prompt, model=model)).strip()
         if "Final Answer:" in summary_result:
-            return summary_result.split("Final Answer:", 1)[1].strip(), steps
+            return summary_result.split("Final Answer:", 1)[1].strip(), used_tools
 
-        return summary_result or "抱歉，我暂时无法完成该问题。", steps
+        return summary_result or "抱歉，我暂时无法完成该问题。", used_tools
 
     def _extract_action(self, text: str) -> dict | None:
         json_match = re.search(r'```(?:json)?\s*(\{.*?\})\s*```', text, re.DOTALL)

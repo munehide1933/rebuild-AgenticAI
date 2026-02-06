@@ -14,7 +14,7 @@ from tenacity import (
 import logging
 
 from app.config import settings
-from app.utils.exceptions import LLMError, ErrorCode
+from app.utils.exceptions import LLMError, ValidationError
 
 logger = logging.getLogger(__name__)
 
@@ -131,31 +131,14 @@ class LLMService:
             f"{self._endpoint}/openai/deployments/{deployment_name}/chat/completions"
             f"?api-version={self._api_version}"
         )
-<<<<<<< HEAD
-        headers = {"api-key": self._api_key, "Content-Type": "application/json"}
-        
-        # 注意：不包含 temperature 和 max_tokens（GPT-4o 不支持）
-        payload = {"messages": messages}
-
-        async with httpx.AsyncClient(timeout=120) as client:
-            response = await client.post(url, headers=headers, json=payload)
-            response.raise_for_status()
-            data = response.json()
-
-        choice = data["choices"][0]["message"]
-        return {
-            "content": choice["content"],
-            "model": data.get("model", model)  # 返回实际使用的模型
-=======
         headers = {
             "api-key": self._api_key,
             "Content-Type": "application/json"
->>>>>>> 81cede4 (Initial commit)
         }
         payload = {"messages": messages}
         
         try:
-            async with httpx.AsyncClient(timeout=120) as client:
+            async with httpx.AsyncClient(timeout=300) as client:
                 response = await client.post(url, headers=headers, json=payload)
                 response.raise_for_status()
                 data = response.json()
@@ -181,7 +164,7 @@ class LLMService:
             self._increment_circuit_breaker()
             raise LLMError(
                 "LLM 请求超时",
-                details={"model": model, "timeout": 120},
+                details={"model": model, "timeout": 300},
                 original_error=e
             )
         

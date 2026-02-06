@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import type { ChatRequest, Conversation, Message } from '@/types';
-import { chatApi } from '@/services/api';
+import { chatApi, handleApiError } from '@/services/api';
 
 interface ChatState {
   currentConversationId: string | null;
@@ -36,7 +36,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       const response = await chatApi.listConversations();
       set({ conversations: response.data, isHistoryLoading: false });
     } catch (error: any) {
-      set({ error: error.response?.data?.detail || 'Failed to load conversations', isHistoryLoading: false });
+      set({ error: handleApiError(error), isHistoryLoading: false });
     }
   },
 
@@ -50,7 +50,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         isHistoryLoading: false,
       });
     } catch (error: any) {
-      set({ error: error.response?.data?.detail || 'Failed to load conversation', isHistoryLoading: false });
+      set({ error: handleApiError(error), isHistoryLoading: false });
     }
   },
 
@@ -65,7 +65,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
           : {}),
       }));
     } catch (error: any) {
-      set({ error: error.response?.data?.detail || 'Failed to delete conversation' });
+      set({ error: handleApiError(error) });
     }
   },
 
@@ -136,8 +136,6 @@ export const useChatStore = create<ChatState>((set, get) => ({
                         code_modifications: payload.code_modifications,
                         security_warnings: payload.suggestions,
                         mcp: payload.workflow_state?.phase_outputs?.mcp,
-                        reasoning_trace: payload.workflow_state?.phase_outputs?.reasoning_trace,
-                        react_steps: payload.workflow_state?.phase_outputs?.react_steps,
                         reflection: payload.workflow_state?.phase_outputs?.reflection,
                       },
                     }
@@ -154,7 +152,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     } catch (error: any) {
       set((state) => ({
         messages: state.messages.filter((msg) => msg.id !== localAssistantId),
-        error: error.response?.data?.detail || error.message || 'Failed to send message',
+        error: handleApiError(error),
         isLoading: false,
       }));
     }
