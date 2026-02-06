@@ -30,6 +30,7 @@ export interface MessageMetaInfo {
     total_tokens: number;
   };
   mcp?: Record<string, unknown>;
+  reflection?: Record<string, unknown>;
 }
 
 export interface ReactStep {
@@ -48,6 +49,8 @@ export interface CodeModification {
 export interface ChatRequest {
   message: string;
   conversation_id?: string;
+  deep_thinking?: boolean;
+  web_search_enabled?: boolean;
 }
 
 export interface ChatResponse {

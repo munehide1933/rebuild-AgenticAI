@@ -79,39 +79,66 @@ export const useChatStore = create<ChatState>((set, get) => ({
       created_at: new Date().toISOString(),
     };
 
-    set((state) => ({ messages: [...state.messages, userMessage] }));
+    const localAssistantId = `local-assistant-${Date.now()}`;
+    const assistantMessage: Message = {
+      id: localAssistantId,
+      role: 'assistant',
+      content: '',
+      created_at: new Date().toISOString(),
+    };
+
+    set((state) => ({ messages: [...state.messages, userMessage, assistantMessage] }));
 
     try {
-      const response = await chatApi.sendMessage({
-        ...request,
-        conversation_id: request.conversation_id ?? get().currentConversationId ?? undefined,
-      });
-
-      const assistantMessage: Message = {
-        id: response.data.message_id,
-        role: 'assistant',
-        content: response.data.content,
-        meta_info: {
-          workflow_phase: response.data.workflow_state?.current_phase,
-          code_modifications: response.data.code_modifications,
-          security_warnings: response.data.suggestions,
-          mcp: response.data.workflow_state?.phase_outputs?.mcp,
+      await chatApi.streamMessage(
+        {
+          ...request,
+          conversation_id: request.conversation_id ?? get().currentConversationId ?? undefined,
         },
-        created_at: new Date().toISOString(),
-      };
+        {
+          onChunk: (chunk) => {
+            set((state) => ({
+              messages: state.messages.map((msg) =>
+                msg.id === localAssistantId
+                  ? { ...msg, content: `${msg.content}${chunk}` }
+                  : msg,
+              ),
+            }));
+          },
+          onDone: (payload) => {
+            set((state) => ({
+              messages: state.messages.map((msg) =>
+                msg.id === localAssistantId
+                  ? {
+                      ...msg,
+                      id: payload.message_id,
+                      content: payload.content,
+                      meta_info: {
+                        workflow_phase: payload.workflow_state?.current_phase,
+                        code_modifications: payload.code_modifications,
+                        security_warnings: payload.suggestions,
+                        mcp: payload.workflow_state?.phase_outputs?.mcp,
+                        reasoning_trace: payload.workflow_state?.phase_outputs?.reasoning_trace,
+                        react_steps: payload.workflow_state?.phase_outputs?.react_steps,
+                        reflection: payload.workflow_state?.phase_outputs?.reflection,
+                      },
+                    }
+                  : msg,
+              ),
+              currentConversationId: payload.conversation_id,
+            }));
+          },
+        },
+      );
 
-      set((state) => ({
-        messages: [...state.messages, assistantMessage],
-        currentConversationId: response.data.conversation_id,
-        isLoading: false,
-      }));
-
+      set({ isLoading: false });
       await get().loadConversations();
     } catch (error: any) {
-      set({
-        error: error.response?.data?.detail || 'Failed to send message',
+      set((state) => ({
+        messages: state.messages.filter((msg) => msg.id !== localAssistantId),
+        error: error.response?.data?.detail || error.message || 'Failed to send message',
         isLoading: false,
-      });
+      }));
     }
   },
 
