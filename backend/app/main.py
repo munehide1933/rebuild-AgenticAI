@@ -1,10 +1,13 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
 from contextlib import asynccontextmanager
+
 from app.config import settings
 from app.models.database import init_db
 from app.api import chat
 from app.utils.startup_check import check_environment
+from app.middleware.error_handler import error_handler_middleware
 import logging
 import sys
 
@@ -15,7 +18,6 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """应用生命周期管理"""
@@ -25,23 +27,25 @@ async def lifespan(app: FastAPI):
         logger.error("Startup checks failed. Please fix the errors above.")
         sys.exit(1)
     
-    # 启动时
+    # 初始化数据库
     logger.info("Initializing database...")
     await init_db()
     logger.info("Database initialized")
     
     yield
     
-    # 关闭时
+    # 关闭时清理
     logger.info("Application shutdown")
-
 
 app = FastAPI(
     title="Meta-Agent",
-    description="通用智能体：深度思考、自我反思、互联网搜索；可扩展工具框架，新功能以工具形式加载",
+    description="通用智能体：深度思考、自我反思、互联网搜索；可扩展工具框架",
     version="1.0.0",
     lifespan=lifespan
 )
+
+# 添加错误处理中间件
+app.add_middleware(BaseHTTPMiddleware, dispatch=error_handler_middleware)
 
 # CORS配置
 app.add_middleware(
@@ -63,11 +67,20 @@ async def root():
         "status": "running"
     }
 
-
 @app.get("/health")
 async def health_check():
-    return {"status": "healthy"}
-
+    """健康检查端点"""
+    from app.services.llm_service import LLMService
+    
+    llm_service = LLMService()
+    stats = llm_service.get_stats()
+    
+    return {
+        "status": "healthy",
+        "llm_configured": llm_service._configured,
+        "llm_stats": stats,
+        "database": "connected"
+    }
 
 if __name__ == "__main__":
     import uvicorn

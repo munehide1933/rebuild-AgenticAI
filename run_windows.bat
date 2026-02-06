@@ -56,9 +56,9 @@ if not exist "node_modules" (
 cd ..
 
 echo [4/6] Creating data directories...
-mkdir data\qdrant 2>nul
-mkdir data\sqlite 2>nul
-mkdir data\uploads 2>nul
+mkdir backend\data\qdrant 2>nul
+mkdir backend\data\sqlite 2>nul
+mkdir backend\data\uploads 2>nul
 
 echo [5/6] Starting Qdrant (local mode)...
 echo Qdrant will run in embedded mode (no separate process needed)
