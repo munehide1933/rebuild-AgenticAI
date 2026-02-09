@@ -1,198 +1,153 @@
 # Meta-Agent Development System
 
-一个基于多角色协作架构的AI智能体开发系统，用于加速软件开发流程。
+基于 FastAPI + React 的本地智能体开发系统，提供多模型路由、对话管理与流式输出能力，支持可选的 Web 搜索与用户偏好上下文。
 
-## 🌟 核心特性
+## ✨ 主要功能
 
-- **多角色协作架构**: 6个专业角色（架构师、后端、前端、AI工程师、安全审查、PM）协同工作
-- **标准化工作流**: 6阶段开发流程（需求理解 → 架构设计 → RAG规划 → 实现 → 安全审查 → 交付）
-- **RAG增强**: 基于Qdrant的向量检索，支持项目代码上下文理解
-- **代码修改协议**: 安全、可追溯的代码生成和修改
-- **安全审查**: 自动化安全漏洞检测
-- **对话历史管理**: SQLite持久化存储
+- **智能体推理策略**：简单问题走 CoT 直答，复杂问题走 ReAct + 工具调用（可选 Tavily 搜索）。
+- **多模型路由**：根据问题内容在默认模型与计算机科学专家模型之间自动切换。
+- **流式对话**：前端通过 SSE 逐块渲染回复，体验更自然。
+- **会话管理**：支持会话列表、详情、删除，数据持久化到 SQLite。
+- **MCP 上下文**：基于近期对话与用户偏好构建上下文提示。
 
-## 🏗️ 技术栈
+## 🧱 技术栈
 
 ### 后端
-- **框架**: FastAPI
-- **LLM**: Azure OpenAI (GPT-5)
-- **向量数据库**: Qdrant
-- **关系数据库**: SQLite
-- **ORM**: SQLAlchemy
+- **FastAPI** + **SQLAlchemy (Async)**
+- **Azure OpenAI**（默认模型 + DeepSeek 模型部署）
+- **SQLite**（数据持久化）
+- **Tavily**（可选 Web 搜索）
 
 ### 前端
-- **框架**: React 18 + TypeScript
-- **构建工具**: Vite
-- **状态管理**: Zustand
-- **样式**: TailwindCSS
-- **Markdown渲染**: react-markdown
-- **代码高亮**: react-syntax-highlighter
+- **React 18 + TypeScript**
+- **Vite** 构建
+- **Zustand** 状态管理
+- **TailwindCSS** 样式
 
-## 📋 系统要求
+## 📁 项目结构
+
+```
+.
+├── backend/                 # FastAPI 后端
+│   ├── app/
+│   │   ├── api/             # API 路由
+│   │   ├── core/            # Agent 与推理策略
+│   │   ├── models/          # SQLAlchemy 模型
+│   │   ├── services/        # LLM/会话/用户偏好服务
+│   │   ├── tools/           # 外部工具（Tavily 搜索）
+│   │   └── utils/           # 启动检查、异常等
+│   └── requirements.txt
+├── frontend/                # React 前端
+│   ├── src/
+│   │   ├── components/
+│   │   ├── services/
+│   │   ├── stores/
+│   │   └── types/
+│   └── package.json
+├── data/                    # 运行时数据（SQLite、上传、Qdrant 目录占位）
+├── run_linux.sh             # Linux 一键启动
+├── run_mac.sh               # macOS 一键启动
+├── run_windows.bat          # Windows 一键启动
+└── setup.py                 # 一键安装脚本
+```
+
+## ✅ 环境要求
 
 - Python 3.10+
 - Node.js 18+
-- Windows 10 或 Ubuntu 24.04 LTS
-- 8GB+ RAM
-- Azure OpenAI API访问权限
+- Azure OpenAI 访问权限（可不配置，系统会返回占位响应）
+
+## ⚙️ 环境配置
+
+在项目根目录创建 `.env` 文件，填写以下变量：
+
+```bash
+AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com/
+AZURE_OPENAI_API_KEY=your-api-key-here
+AZURE_OPENAI_API_VERSION=2024-12-01-preview
+AZURE_OPENAI_DEPLOYMENT_NAME=gpt-5.1-chat
+AZURE_OPENAI_EMBEDDING_DEPLOYMENT=text-embedding-3-large
+AZURE_DEEPSEEK_DEPLOYMENT_NAME=DeepSeek-R1-0528
+
+DEFAULT_MODEL=gpt-5.1-chat
+CS_SPECIALIST_MODEL=DeepSeek-R1-0528
+
+SECRET_KEY=your-secret-key-change-in-production
+CORS_ORIGINS=["http://localhost:5173","http://127.0.0.1:5173"]
+
+# 可选：Web 搜索
+WEB_SEARCH_ENABLED=false
+TAVILY_API_KEY=
+TAVILY_MAX_RESULTS=5
+```
+
+> 未配置 Azure OpenAI 时，接口仍可启动，但会返回占位响应。
 
 ## 🚀 快速开始
 
-### 1. 克隆项目
+### 方式一：一键安装 + 启动（推荐）
 
 ```bash
-git clone <your-repo-url>
-cd meta-agent-system
-2. 一键安装
-Windows:
 python setup.py
-Linux:
-python3 setup.py
-3. 配置环境变量
-编辑根目录下的 .env 文件，填入你的 Azure OpenAI 凭证：
-envCopyAZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com/
-AZURE_OPENAI_API_KEY=your-api-key-here
-AZURE_OPENAI_API_VERSION=2024-02-15-preview
-AZURE_OPENAI_DEPLOYMENT_NAME=gpt-5
-AZURE_OPENAI_EMBEDDING_DEPLOYMENT=text-embedding-3-large
+```
 
-SECRET_KEY=your-secret-key-change-in-production
-4. 启动系统
-Windows:
-run_windows.bat
-Linux:
+随后执行对应系统的启动脚本：
+
+```bash
+# Linux
 ./run_linux.sh
-5. 访问应用
 
-前端界面: http://localhost:5173
-后端API: http://localhost:8000
-API文档: http://localhost:8000/docs
+# macOS
+./run_mac.sh
 
-📖 使用指南
-创建项目
+# Windows
+run_windows.bat
+```
 
-点击左侧边栏的 "+" 按钮
-输入项目名称和描述
-点击 "Create Project"
+### 方式二：手动启动
 
-上传代码文件
+```bash
+# 后端
+cd backend
+python -m venv venv
+source venv/bin/activate  # Windows: venv\Scripts\activate
+pip install -r requirements.txt
+python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
-选择一个项目
-点击聊天输入框左侧的📎图标
-选择代码文件（支持 .py, .js, .ts, .java, .go, .md 等）
-系统会自动进行语义分析和向量化
+# 前端
+cd ../frontend
+npm install
+npm run dev
+```
 
-开始对话
-直接在输入框中描述你的需求，例如：
-Copy我想开发一个用户认证系统，包含注册、登录、JWT token管理功能，
-使用 FastAPI + SQLAlchemy + PostgreSQL
-系统会自动：
+前端地址：<http://localhost:5173>
+后端地址：<http://localhost:8000>
+API 文档：<http://localhost:8000/docs>
 
-分析需求
-设计架构
-生成完整代码
-进行安全审查
-提供部署建议
+## 🔌 主要 API
 
-RAG检索
-上传项目文件后，系统会自动：
+- `POST /api/chat/message`：普通对话
+- `POST /api/chat/stream`：流式对话（SSE）
+- `GET /api/chat/conversations`：会话列表
+- `GET /api/chat/conversations/{id}`：会话详情
+- `DELETE /api/chat/conversations/{id}`：删除会话
+- `GET /health`：健康检查
 
-分块处理代码（chunk size: 1000 tokens）
-生成embeddings（text-embedding-3-large）
-存储到Qdrant向量数据库
-在对话时自动检索相关上下文
+## 🗄️ 数据持久化
 
-🔧 项目结构
-Copymeta-agent-system/
-├── backend/                 # 后端服务
-│   ├── app/
-│   │   ├── api/            # API路由
-│   │   ├── core/           # 核心引擎（工作流、角色、安全）
-│   │   ├── models/         # 数据模型
-│   │   ├── services/       # 业务服务（LLM、RAG、向量）
-│   │   └── main.py         # FastAPI主应用
-│   └── requirements.txt
-├── frontend/               # 前端应用
-│   ├── src/
-│   │   ├── components/    # React组件
-│   │   ├── stores/        # Zustand状态管理
-│   │   ├── services/      # API服务
-│   │   └── types/         # TypeScript类型
-│   └── package.json
-├── data/                   # 数据目录
-│   ├── qdrant/            # 向量数据库
-│   ├── sqlite/            # SQLite数据库
-│   └── uploads/           # 上传文件
-├── setup.py               # 安装脚本
-├── run_windows.bat        # Windows启动脚本
-├── run_linux.sh           # Linux启动脚本
-└── README.md
-🛡️ 安全特性
+SQLite 数据库默认位置：
 
-代码安全扫描: 自动检测危险模式（eval, exec, SQL注入等）
-API密钥保护: 使用环境变量管理敏感信息
-文件系统隔离: 限制代码修改范围
-输入验证: Pydantic schema验证
-CORS配置: 限制跨域请求
+```
+./data/sqlite/meta_agent.db
+```
 
-📊 数据持久化
-SQLite数据库
+会话与消息会自动写入数据库；启动时会自动创建 `data/qdrant`、`data/sqlite`、`data/uploads` 目录。
 
-projects: 项目信息
-conversations: 对话记录
-messages: 消息历史
-knowledge_files: 文件元数据
+## 🧩 说明
 
-Qdrant向量数据库
+- **模型路由**：当问题包含编程相关关键字，会优先使用计算机科学专家模型。
+- **Web 搜索**：启用 `WEB_SEARCH_ENABLED` 且配置 `TAVILY_API_KEY` 后，复杂问题将使用搜索工具辅助推理。
 
-collection: meta_agent_knowledge
-embedding dimension: 3072
-distance metric: Cosine
+## 📄 License
 
-🔍 API 文档
-启动后访问 http://localhost:8000/docs 查看完整的API文档（Swagger UI）。
-主要端点
-
-POST /api/chat/message - 发送消息
-POST /api/projects - 创建项目
-GET /api/projects - 获取项目列表
-POST /api/projects/{id}/upload-file - 上传文件
-POST /api/knowledge/search - 搜索知识库
-
-🐛 故障排查
-后端无法启动
-
-检查 .env 文件是否正确配置
-确认 Azure OpenAI 凭证有效
-查看日志：backend/logs/app.log
-
-Qdrant连接失败
-系统使用本地嵌入模式，无需额外安装Qdrant服务。数据存储在 data/qdrant/ 目录。
-前端无法连接后端
-
-确认后端已启动（http://localhost:8000/health）
-检查CORS配置（.env 中的 CORS_ORIGINS）
-查看浏览器控制台错误
-
-📝 开发指南
-添加新的角色
-编辑 backend/app/core/personas.py：
-pythonCopyPersonaRole.NEW_ROLE: """You are a new role..."""
-扩展工作流阶段
-编辑 backend/app/core/workflow_engine.py：
-pythonCopyclass WorkflowPhase(str, Enum):
-    NEW_PHASE = "new_phase"
-自定义代码修改规则
-编辑 backend/app/core/code_modifier.py
-🤝 贡献
-欢迎提交 Issue 和 Pull Request！
-📄 许可证
 MIT License
-🙏 致谢
-
-Azure OpenAI
-Qdrant
-FastAPI
-React
-
-Enjoy building with Meta-Agent! 🚀
