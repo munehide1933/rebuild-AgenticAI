@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import type { ChatRequest, Conversation, Message } from '@/types';
-import { chatApi, handleApiError } from '@/services/api';
+import { chatApi, handleApiError, intentApi } from '@/services/api';
 
 interface ChatState {
   currentConversationId: string | null;
@@ -88,6 +88,19 @@ export const useChatStore = create<ChatState>((set, get) => ({
     };
 
     set((state) => ({ messages: [...state.messages, userMessage, assistantMessage] }));
+
+    try {
+      const intent = await intentApi.detectIntent(request.message);
+      set((state) => ({
+        messages: state.messages.map((msg) =>
+          msg.id === userMessage.id
+            ? { ...msg, meta_info: { ...msg.meta_info, intent: intent.intent } }
+            : msg,
+        ),
+      }));
+    } catch {
+      // 意图识别失败不影响主流程
+    }
 
     try {
       await chatApi.streamMessage(

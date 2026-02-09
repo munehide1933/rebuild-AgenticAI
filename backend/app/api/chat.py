@@ -1,11 +1,10 @@
-"""简化的聊天 API：真正的流式输出"""
+"""重构后的聊天 API：支持会话持久化、摘要历史、软删除与 MCP 上下文注入。"""
 
 from __future__ import annotations
 
 import asyncio
 import json
-import logging
-from typing import AsyncGenerator
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
@@ -20,38 +19,20 @@ from app.models.schemas import (
     MessageDTO,
 )
 from app.services.conversation_service import ConversationService
-from app.core.agent import Agent
+from app.services.llm_service import LLMService
+from app.services.mcp_service import MCPService
+from app.services.reasoning_orchestrator import ReasoningOrchestrator
+from app.services.user_profile_service import UserProfileService
+from app.services.v1_parity_pipeline import V1ParityPipeline
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
-logger = logging.getLogger(__name__)
 
-agent = Agent(max_react_steps=5)  # 限制最大步数为5
+llm_service = LLMService()
+reasoning_orchestrator = ReasoningOrchestrator(llm_service)
+mcp_service = MCPService()
+v1_parity_pipeline = V1ParityPipeline(llm_service)
 
 
-<<<<<<< HEAD
-async def _generate_streaming_response(
-    message: str,
-    history: list,
-    mcp_context: dict | None = None
-) -> AsyncGenerator[str, None]:
-    """生成流式响应"""
-    try:
-        # 直接使用Agent进行推理,不显示中间过程
-        full_response, _ = await agent.run(message, history, mcp_context)
-        
-        # 模拟流式输出效果
-        chunk_size = 30
-        for i in range(0, len(full_response), chunk_size):
-            chunk = full_response[i:i + chunk_size]
-            yield chunk
-            await asyncio.sleep(0.02)  # 小延迟,模拟打字效果
-            
-    except asyncio.TimeoutError:
-        yield "\n\n抱歉,响应超时。请尝试简化您的问题。"
-    except Exception as e:
-        logger.error(f"Error in streaming response: {e}", exc_info=True)
-        yield f"\n\n处理出错: {str(e)}"
-=======
 async def _prepare_chat_result(request: ChatRequest, db: AsyncSession) -> dict[str, Any]:
     conversation_id = request.conversation_id
     if conversation_id:
@@ -148,131 +129,50 @@ async def _prepare_chat_result(request: ChatRequest, db: AsyncSession) -> dict[s
         "code_modifications": code_modifications,
         "suggestions": suggestions,
     }
->>>>>>> 3a0ffb3f0f5903549c7c3d0d57cb153bddbd4bc2
 
 
 @router.post("/message", response_model=ChatResponse)
 async def send_message(request: ChatRequest, db: AsyncSession = Depends(get_db)):
-    """非流式消息接口"""
     try:
-        conversation_id = request.conversation_id
-        if conversation_id:
-            conversation = await ConversationService.get_active_conversation(db, conversation_id)
-            if not conversation:
-                raise HTTPException(status_code=404, detail="Conversation not found")
-        else:
-            conversation = await ConversationService.create_conversation(db, title=request.message[:50])
-            conversation_id = conversation.id
-
-        await ConversationService.add_message(
-            db,
-            conversation_id=conversation_id,
-            role="user",
-            content=request.message,
-        )
-
-        history = await ConversationService.get_conversation_history(db, conversation_id, limit=10)
-        
-        # 设置超时时间为60秒
-        try:
-            answer, _ = await asyncio.wait_for(
-                agent.run(request.message, history[:-1], None),
-                timeout=60.0
-            )
-        except asyncio.TimeoutError:
-            answer = "抱歉,响应超时。请尝试简化您的问题或分多次提问。"
-
-        assistant_message = await ConversationService.add_message(
-            db,
-            conversation_id=conversation_id,
-            role="assistant",
-            content=answer,
-            meta_info={},
-        )
-
-        return ChatResponse(
-            message_id=assistant_message.id,
-            content=answer,
-            conversation_id=conversation_id,
-        )
-
+        payload = await _prepare_chat_result(request, db)
+        return ChatResponse(**payload)
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error in send_message: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("/stream")
 async def stream_message(request: ChatRequest, db: AsyncSession = Depends(get_db)):
-    """真正的流式输出接口"""
-    
-    async def event_generator() -> AsyncGenerator[str, None]:
-        conversation_id = None
-        assistant_message_id = None
-        full_content = ""
-        
-        try:
-            # 创建或获取会话
-            conversation_id = request.conversation_id
-            if conversation_id:
-                conversation = await ConversationService.get_active_conversation(db, conversation_id)
-                if not conversation:
-                    yield f"data: {json.dumps({'type': 'error', 'message': 'Conversation not found'}, ensure_ascii=False)}\n\n"
-                    return
-            else:
-                conversation = await ConversationService.create_conversation(db, title=request.message[:50])
-                conversation_id = conversation.id
+    try:
+        async def event_generator():
+            task = asyncio.create_task(_prepare_chat_result(request, db))
+            yield f"data: {json.dumps({'type': 'status', 'content': '正在处理中...'}, ensure_ascii=False)}\n\n"
+            last_ping = asyncio.get_event_loop().time()
 
-            await ConversationService.add_message(
-                db,
-                conversation_id=conversation_id,
-                role="user",
-                content=request.message,
-            )
+            while not task.done():
+                now = asyncio.get_event_loop().time()
+                if now - last_ping >= 10:
+                    yield "data: {\"type\": \"ping\"}\n\n"
+                    last_ping = now
+                await asyncio.sleep(0.5)
 
-            history = await ConversationService.get_conversation_history(db, conversation_id, limit=10)
-            
-            # 流式生成回复
-            async for chunk in _generate_streaming_response(request.message, history[:-1], None):
-                full_content += chunk
+            try:
+                payload = await task
+            except Exception as exc:
+                error_payload = {"type": "error", "message": str(exc)}
+                yield f"data: {json.dumps(error_payload, ensure_ascii=False)}\n\n"
+                return
+
+            content = payload["content"]
+            chunk_size = 40
+            for i in range(0, len(content), chunk_size):
+                chunk = content[i:i + chunk_size]
                 yield f"data: {json.dumps({'type': 'chunk', 'content': chunk}, ensure_ascii=False)}\n\n"
+                await asyncio.sleep(0.01)
 
-            # 保存助手回复
-            if full_content:
-                assistant_message = await ConversationService.add_message(
-                    db,
-                    conversation_id=conversation_id,
-                    role="assistant",
-                    content=full_content,
-                    meta_info={},
-                )
-                assistant_message_id = assistant_message.id
-
-            # 发送完成事件
-            payload = {
-                "message_id": assistant_message_id or "temp",
-                "content": full_content,
-                "conversation_id": conversation_id,
-            }
             yield f"data: {json.dumps({'type': 'done', 'payload': payload}, ensure_ascii=False)}\n\n"
 
-<<<<<<< HEAD
-        except Exception as e:
-            logger.error(f"Error in stream_message: {e}", exc_info=True)
-            error_msg = "处理出错,请稍后重试"
-            yield f"data: {json.dumps({'type': 'error', 'message': error_msg}, ensure_ascii=False)}\n\n"
-
-    return StreamingResponse(
-        event_generator(),
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-            "X-Accel-Buffering": "no",
-        },
-    )
-=======
         return StreamingResponse(
             event_generator(),
             media_type="text/event-stream",
@@ -286,7 +186,6 @@ async def stream_message(request: ChatRequest, db: AsyncSession = Depends(get_db
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
->>>>>>> 3a0ffb3f0f5903549c7c3d0d57cb153bddbd4bc2
 
 
 @router.get("/conversations", response_model=list[ConversationSummary])
@@ -336,3 +235,13 @@ async def delete_conversation(conversation_id: str, db: AsyncSession = Depends(g
     if not deleted:
         raise HTTPException(status_code=404, detail="Conversation not found")
     return {"success": True}
+
+
+@router.get("/reasoning-stats")
+async def get_reasoning_stats():
+    return {
+        "supported_strategies": ["direct", "cot", "react", "v1-parity-pipeline"],
+        "supported_models": ["gpt-5.1-chat", "DeepSeek-R1-0528"],
+        "routing_rules": "自动路由 + 可选深度思考/联网检索",
+        "mcp_context": "enabled_with_user_profile",
+    }

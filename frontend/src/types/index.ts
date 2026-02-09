@@ -20,6 +20,7 @@ export interface MessageMetaInfo {
   model?: 'gpt5' | 'DeepSeek-R1-0528' | string;
   confidence?: number;
   workflow_phase?: string;
+  intent?: string;
   code_modifications?: CodeModification[];
   security_warnings?: string[];
   usage?: {
@@ -60,4 +61,10 @@ export interface ChatResponse {
 
 export interface ConversationDetail extends Conversation {
   messages: Message[];
+}
+
+export interface IntentResponse {
+  intent: string;
+  confidence: number;
+  raw?: string;
 }
