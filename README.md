@@ -116,6 +116,9 @@ npm run dev
 后端地址：<http://localhost:8000>
 API 文档：<http://localhost:8000/docs>
 
+> Windows 提示：请使用 `npm run dev` 启动前端。如果直接执行 `next dev` 提示 “不是内部或外部命令”，
+> 说明依赖尚未安装或未通过 npm 脚本执行，请先运行 `npm install`，再执行 `npm run dev`（或 `npx next dev`）。
+
 ## 🔌 主要 API
 
 - `POST /api/chat/message`：普通对话
