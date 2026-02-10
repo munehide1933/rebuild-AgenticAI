@@ -1,8 +1,10 @@
 import axios from 'axios';
-import type { ChatRequest, ChatResponse, Conversation, ConversationDetail } from '@/types';
+import type { ChatRequest, ChatResponse, Conversation, ConversationDetail, IntentResponse } from '@/types';
+
+const backendUrl = (process.env.NEXT_PUBLIC_BACKEND_URL ?? '').replace(/\/$/, '');
 
 const api = axios.create({
-  baseURL: '/api',
+  baseURL: backendUrl ? `${backendUrl}/api` : '/api',
   timeout: 300000,
   headers: {
     'Content-Type': 'application/json',
@@ -29,7 +31,7 @@ export const chatApi = {
 
   streamMessage: async (data: ChatRequest, handlers: StreamHandlers) => {
     try {
-      const response = await fetch('/api/chat/stream', {
+      const response = await fetch(`${backendUrl}/api/chat/stream`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -96,6 +98,22 @@ export const chatApi = {
     api.get<ConversationDetail>(`/chat/conversations/${conversationId}`),
   deleteConversation: (conversationId: string) =>
     api.delete<{ success: boolean }>(`/chat/conversations/${conversationId}`),
+};
+
+export const intentApi = {
+  detectIntent: async (message: string) => {
+    const response = await fetch('/api/intent', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Intent request failed: ${response.statusText}`);
+    }
+
+    return (await response.json()) as IntentResponse;
+  },
 };
 
 export const handleApiError = (error: unknown): string => {

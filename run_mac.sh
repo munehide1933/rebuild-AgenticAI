@@ -31,8 +31,8 @@ fi
 
 echo -e "${GREEN}[1/6]${NC} Checking environment..."
 if [ ! -f ".env" ]; then
-    echo -e "${YELLOW}[WARNING]${NC} .env not found, copying from backend/.env.example"
-    cp backend/.env.example .env
+    echo -e "${YELLOW}[WARNING]${NC} .env not found, copying from .env.example"
+    cp .env.example .env
     echo
     echo -e "${YELLOW}[IMPORTANT]${NC} Edit .env and add your Azure OpenAI credentials!"
     read -p "Press Enter after you've configured .env..."
@@ -66,7 +66,7 @@ echo -e "${GREEN}[5/6]${NC} Qdrant (embedded, no separate process)"
 echo -e "${GREEN}[6/6]${NC} Starting services..."
 echo
 echo "Backend will run on http://localhost:8000"
-echo "Frontend will run on http://localhost:5173"
+echo "Frontend will run on http://localhost:3000"
 echo
 
 # 启动后端（当前目录要在项目根）
@@ -108,7 +108,7 @@ echo
 echo "========================================"
 echo -e "${GREEN}Services are running.${NC}"
 echo "  Backend:  http://localhost:8000"
-echo "  Frontend: http://localhost:5173"
+echo "  Frontend: http://localhost:3000"
 echo "  API Docs: http://localhost:8000/docs"
 echo "========================================"
 echo

@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useEffect } from 'react';
 import ChatInterface from '../Chat/ChatInterface';
 import ConversationSidebar from '../Chat/ConversationSidebar';

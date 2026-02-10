@@ -178,7 +178,7 @@ def setup_env():
     print("\n📝 Setting up environment configuration...")
     
     env_file = Path(".env")
-    env_example = Path("backend/.env.example")
+    env_example = Path(".env.example")
     
     if not env_file.exists():
         if env_example.exists():
@@ -229,7 +229,7 @@ def print_next_steps():
         print("   - Run: ./run_linux.sh")
     print()
     print("3. Access the application:")
-    print("   - Frontend: http://localhost:5173")
+    print("   - Frontend: http://localhost:3000")
     print("   - Backend:  http://localhost:8000")
     print("   - API Docs: http://localhost:8000/docs")
     print()

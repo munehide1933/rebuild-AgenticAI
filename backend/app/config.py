@@ -18,6 +18,11 @@ class Settings(BaseSettings):
     
     # Azure OpenAI - DeepSeek 模型
     AZURE_DEEPSEEK_DEPLOYMENT_NAME: str = "DeepSeek-R1-0528"  # DeepSeek 模型部署名
+
+    # DeepSeek (非 Azure)
+    DEEPSEEK_API_BASE: str = ""
+    DEEPSEEK_API_KEY: str = ""
+    DEEPSEEK_MODEL: str = "deepseek-r1"
     
     # 模型选择配置（新增）
     DEFAULT_MODEL: str = "gpt-5.1-chat"          # 默认使用的模型
@@ -32,7 +37,10 @@ class Settings(BaseSettings):
     
     # Security
     SECRET_KEY: str = "dev-secret-key"
-    CORS_ORIGINS: List[str] = ["http://localhost:5173", "http://127.0.0.1:5173"]
+    CORS_ORIGINS: List[str] = [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+    ]
     
     # Application
     LOG_LEVEL: str = "INFO"

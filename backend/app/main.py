@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 
 from app.config import settings
 from app.models.database import init_db
-from app.api import chat
+from app.api import analysis, chat
 from app.utils.startup_check import check_environment
 from app.middleware.error_handler import error_handler_middleware
 import logging
@@ -58,6 +58,7 @@ app.add_middleware(
 
 # 注册路由
 app.include_router(chat.router)
+app.include_router(analysis.router)
 
 @app.get("/")
 async def root():

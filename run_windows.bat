@@ -25,7 +25,7 @@ if errorlevel 1 (
 echo [1/6] Checking environment...
 if not exist ".env" (
     echo [WARNING] .env file not found, copying from .env.example
-    copy backend\.env.example .env
+    copy .env.example .env
     echo.
     echo [IMPORTANT] Please edit .env file and add your Azure OpenAI credentials!
     echo Press any key after you've configured .env...
@@ -66,7 +66,7 @@ echo Qdrant will run in embedded mode (no separate process needed)
 echo [6/6] Starting services...
 echo.
 echo Starting backend on http://localhost:8000
-echo Starting frontend on http://localhost:5173
+echo Starting frontend on http://localhost:3000
 echo.
 
 REM 启动后端（新窗口）
@@ -82,7 +82,7 @@ echo.
 echo ========================================
 echo Services are starting...
 echo Backend: http://localhost:8000
-echo Frontend: http://localhost:5173
+echo Frontend: http://localhost:3000
 echo API Docs: http://localhost:8000/docs
 echo ========================================
 echo.
