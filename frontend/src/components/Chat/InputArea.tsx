@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState, useRef, KeyboardEvent } from 'react';
 import { useChatStore } from '@/stores/chatStore';
 import { Send } from 'lucide-react';

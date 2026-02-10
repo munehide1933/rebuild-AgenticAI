@@ -48,3 +48,33 @@ class ConversationDetail(BaseModel):
     created_at: datetime
     updated_at: datetime
     messages: list[MessageDTO]
+
+
+# -----------------------------
+# Repo 分析 / 补丁生成
+# -----------------------------
+class AnalyzeRequest(BaseModel):
+    repo_path: Optional[str] = None
+    github_url: Optional[str] = None
+    focus: Optional[str] = None
+
+
+class AnalyzeResponse(BaseModel):
+    repo_summary: dict[str, Any]
+    repo_path: str
+    source: str
+
+
+class GeneratePatchRequest(BaseModel):
+    repo_path: Optional[str] = None
+    github_url: Optional[str] = None
+    feature_request: str
+    conversation_id: Optional[str] = None
+
+
+class GeneratePatchResponse(BaseModel):
+    conversation_id: str
+    patch: str
+    intent: dict[str, Any]
+    architecture: str
+    repo_summary: dict[str, Any]

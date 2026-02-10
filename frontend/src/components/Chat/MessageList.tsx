@@ -1,7 +1,9 @@
+'use client';
+
 import React, { useEffect, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import type { Message } from '@/types';
-import { Bot, User, Clock } from 'lucide-react';
+import { AlertTriangle, Bot, Clock, Code, User } from 'lucide-react';
 import { format } from 'date-fns';
 
 interface MessageListProps {
@@ -10,29 +12,14 @@ interface MessageListProps {
 }
 
 const MessageList: React.FC<MessageListProps> = ({ messages, isLoading }) => {
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // 自动滚动到底部
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isLoading]);
 
   return (
-    <div
-      ref={scrollContainerRef}
-<<<<<<< HEAD
-      className="flex-1 overflow-y-auto px-6 py-4 space-y-6"
-      style={{ 
-        maxHeight: '100%',
-        overflowY: 'auto',
-        WebkitOverflowScrolling: 'touch'
-      }}
-=======
-      onScroll={updateAutoScroll}
-      className="flex-1 min-h-0 overflow-y-auto px-6 py-4 space-y-6 scrollbar-thin"
->>>>>>> 3a0ffb3f0f5903549c7c3d0d57cb153bddbd4bc2
-    >
+    <div className="flex-1 min-h-0 overflow-y-auto px-6 py-4 space-y-6 scrollbar-thin">
       {messages.length === 0 && !isLoading && (
         <div className="flex items-center justify-center h-full">
           <div className="text-center">
@@ -55,9 +42,18 @@ const MessageList: React.FC<MessageListProps> = ({ messages, isLoading }) => {
           <div className="flex-1">
             <div className="bg-gray-50 px-4 py-3 rounded-2xl rounded-tl-sm">
               <div className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                <div
+                  className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+                  style={{ animationDelay: '0ms' }}
+                ></div>
+                <div
+                  className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+                  style={{ animationDelay: '150ms' }}
+                ></div>
+                <div
+                  className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+                  style={{ animationDelay: '300ms' }}
+                ></div>
               </div>
             </div>
           </div>
@@ -75,14 +71,11 @@ interface MessageItemProps {
 
 const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
   const isUser = message.role === 'user';
-<<<<<<< HEAD
-=======
   const hasMetadata = !!message.meta_info && Object.keys(message.meta_info).length > 0;
->>>>>>> 3a0ffb3f0f5903549c7c3d0d57cb153bddbd4bc2
 
   return (
     <div className={`flex items-start gap-4 ${isUser ? 'flex-row-reverse' : ''}`}>
-      <div 
+      <div
         className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
           isUser ? 'bg-gray-200' : 'bg-primary-100'
         }`}
@@ -96,32 +89,27 @@ const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
 
       <div className={`flex-1 max-w-3xl ${isUser ? 'flex flex-col items-end' : ''}`}>
         <div className={`flex items-center gap-2 mb-2 ${isUser ? 'flex-row-reverse' : ''}`}>
-          <span className="font-medium text-gray-700 text-sm">
-            {isUser ? 'You' : 'AI Assistant'}
-          </span>
+          <span className="font-medium text-gray-700 text-sm">{isUser ? 'You' : 'AI Assistant'}</span>
           <span className="text-xs text-gray-400 flex items-center gap-1">
             <Clock className="w-3 h-3" />
             {format(new Date(message.created_at), 'HH:mm')}
           </span>
         </div>
 
-        <div 
+        <div
           className={`prose prose-sm max-w-none ${
-            isUser 
-              ? 'bg-primary-600 text-white px-4 py-3 rounded-2xl rounded-tr-sm' 
+            isUser
+              ? 'bg-primary-600 text-white px-4 py-3 rounded-2xl rounded-tr-sm'
               : 'bg-gray-50 px-4 py-3 rounded-2xl rounded-tl-sm text-gray-800'
           }`}
         >
           {isUser ? (
-            <p className="text-white whitespace-pre-wrap m-0 leading-relaxed">
-              {message.content}
-            </p>
+            <p className="text-white whitespace-pre-wrap m-0 leading-relaxed">{message.content}</p>
           ) : (
-<<<<<<< HEAD
-            <ReactMarkdown 
+            <ReactMarkdown
               components={{
                 p: ({ children }) => <p className="m-0 mb-2 last:mb-0 leading-relaxed">{children}</p>,
-                code: ({ inline, children }) => 
+                code: ({ inline, children }) =>
                   inline ? (
                     <code className="bg-gray-200 text-gray-800 px-1.5 py-0.5 rounded text-sm">
                       {children}
@@ -140,10 +128,6 @@ const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
             </ReactMarkdown>
           )}
         </div>
-=======
-            <ReactMarkdown>{message.content}</ReactMarkdown>
-          )}
-        </div>
 
         {hasMetadata && !isUser && (
           <div className="mt-3 space-y-2">
@@ -159,7 +143,9 @@ const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
                   {message.meta_info?.code_modifications?.map((mod, idx) => (
                     <div key={idx} className="text-xs text-amber-700">
                       <span className="font-mono">{mod.file_path}</span>
-                      <span className="ml-2 px-1.5 py-0.5 bg-amber-200 rounded">{mod.modification_type}</span>
+                      <span className="ml-2 px-1.5 py-0.5 bg-amber-200 rounded">
+                        {mod.modification_type}
+                      </span>
                     </div>
                   ))}
                 </div>
@@ -174,14 +160,15 @@ const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
                 </div>
                 <div className="space-y-1">
                   {message.meta_info?.security_warnings?.map((warning, idx) => (
-                    <p key={idx} className="text-xs text-red-700">{warning}</p>
+                    <p key={idx} className="text-xs text-red-700">
+                      {warning}
+                    </p>
                   ))}
                 </div>
               </div>
             )}
           </div>
         )}
->>>>>>> 3a0ffb3f0f5903549c7c3d0d57cb153bddbd4bc2
       </div>
     </div>
   );

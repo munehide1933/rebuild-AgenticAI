@@ -88,6 +88,14 @@ class LLMService:
             return settings.CS_SPECIALIST_MODEL
         
         return settings.DEFAULT_MODEL
+
+    def get_stats(self) -> dict[str, Any]:
+        return {
+            "call_count": self._call_count,
+            "failed_calls": self._failed_calls,
+            "total_tokens": self._total_tokens,
+            "circuit_breaker_open": self._circuit_breaker_open,
+        }
     
     @retry(
         stop=stop_after_attempt(3),

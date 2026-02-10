@@ -1,4 +1,4 @@
 """API module"""
-from . import chat
+from . import analysis, chat
 
-__all__ = ["chat"]
+__all__ = ["analysis", "chat"]
